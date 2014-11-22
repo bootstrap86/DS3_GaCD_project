@@ -38,7 +38,17 @@ setwd("C:/Users/liezl/Documents/DataScienceCourse/Getting and Cleaning Data/DS3_
   feat <- read.table("./data/UCI HAR Dataset/features.txt")
   str(feat)
   head(feat)
-  
+
+  # load training subjects names into dataframe with 561 obs. of  2 variables
+  subject_train <- read.table("./data/UCI HAR Dataset/train/subject_train.txt")
+  str(subject_train)
+  table(subject_train)
+
+  # load test subjects names into dataframe with 561 obs. of  2 variables
+  subject_test <- read.table("./data/UCI HAR Dataset/test/subject_test.txt")
+  str(subject_test)
+  table(subject_test)
+    
   # load X_train dataframe with 7352 obs. of  561 variables (takes very long)
   xtrain <- read.table("./data/UCI HAR Dataset/train/X_train.txt")
   str(xtrain)
@@ -64,17 +74,20 @@ setwd("C:/Users/liezl/Documents/DataScienceCourse/Getting and Cleaning Data/DS3_
 
 # 1. Merging the data sets
   
+
   # merge training data and rename first column to "act_id" 
-  train <- cbind(ytrain,xtrain)
-  colnames(train)[1] <- c("act_id")
+  train <- cbind(subject_train,ytrain,xtrain)
+  str(train)
+  colnames(train)[2] <- c("act_id")
   
   # merge test data and rename first column to "act_id"
-  test <- cbind(ytest,xtest)
-  colnames(test)[1] <- c("act_id")
+  test <- cbind(subject_test,ytest,xtest)
+  colnames(test)[2] <- c("act_id")
   
   # merges the training and the test sets to create one data set 
   # with 10299 obs. of  562 variables
   big_df <- rbind(train,test)
+  colnames(big_df)[1] <- "subject_id"  
   str(big_df)
 
 # 2. Extracts only the measurements on the mean and standard deviation for each measurement. 
@@ -90,3 +103,43 @@ setwd("C:/Users/liezl/Documents/DataScienceCourse/Getting and Cleaning Data/DS3_
   stdloc <- grepl("std()", feat$V2, fixed = TRUE)
   stdvars <- feat$V1[stdloc == TRUE]
 
+  # subsetting big data set to get only the measurements on 
+  # the  mean and standard deviation for each measurement
+  # result: dataframe with 10299 obs. of  68 variables
+  msvars <- sort(cbind(meanvars,stdvars))
+  ms_df <- big_df[,c(1,2,2+msvars)]  #extracted measurements of the means and stdevs of the measurements
+  str(ms_df)   
+
+
+# 3. Uses descriptive activity names to name the activities in the data set
+  
+  # look at activity labels and rename first column to "act_id"
+  act_labels
+  colnames(act_labels)[1] <- "act_id"
+  
+  # merging the activity labels with the data set variables on "act_id"
+  total <- merge(act_labels,ms_df,by="act_id")
+  str(total)
+  
+  # rename columns
+  colnames(total)[2] <- "act_name"
+  colnames(total)[5] <- "V2"
+  str(total)
+  head(total)
+
+
+# 4. Appropriately labels the data set with descriptive variable names
+
+  colnames(total)[4:69] <- as.character(feat$V2[msvars])
+  colnames(total)
+
+  
+# 5. From the data set in step 4, creates a second, independent tidy data set 
+#    with the average of each variable for each activity and each subject.
+
+  library(reshape2)
+  meltdata <- melt(total, id.vars = c("act_name", "subject_id"))
+  tidydata <- dcast(meltdata, act_name + subject_id ~ variable, mean)
+  head(tidydata)
+  
+  write.table(tidydata, "./mytidydata.txt", sep="\t", row.name=FALSE)
